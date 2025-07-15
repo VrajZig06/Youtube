@@ -1,9 +1,11 @@
 const Video = require("../models/video.model");
 const WatchHistory = require("../models/watchHistory.model");
+const LikeDislike = require("../models/likeDislikeComment");
 const { ApiError } = require("../utils/ApiError");
 const { ApiResposne } = require("../utils/ApiResponse");
 const { asyncHandler } = require("../utils/asyncHandler");
 const { uploadOnCloudinary } = require("../utils/cloudinary");
+const VideoStats = require("../utils/videoState");
 
 const videoUpload = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
@@ -76,6 +78,41 @@ const allVideos = asyncHandler(async (req, res) => {
 const getSingleVideo = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
+  if (req.body) {
+    const body = req.body;
+    const Activity = ["Like", "DisLike", "Comment"];
+
+    if (body.activity && Activity.includes(body.activity)) {
+      if (body.activity == "Comment" && body?.content) {
+        await LikeDislike.create({
+          user: req.user._id,
+          video: id,
+          activity: body.activity,
+          content: body.content,
+        });
+      } else {
+        let likeDislike = await LikeDislike.findOne({
+          user: req.user._id,
+          video: id,
+        });
+
+        if (likeDislike) {
+          likeDislike.activity =
+            likeDislike.activity == "Like" ? "DisLike" : "Like";
+          await likeDislike.save();
+        }
+
+        if (!likeDislike && body.activity != "Comment") {
+          await LikeDislike.create({
+            user: req.user._id,
+            video: id,
+            activity: body.activity,
+          });
+        }
+      }
+    }
+  }
+
   let video = await Video.findByIdAndUpdate(
     id,
     { $inc: { views: 1 } },
@@ -90,10 +127,27 @@ const getSingleVideo = asyncHandler(async (req, res) => {
     video: video._id,
   });
 
+  let VideoStatus = await VideoStats(id);
+
+  // All Comments
+  const allComments = await LikeDislike.find({
+    video: id,
+    activity: "Comment",
+  })
+    .populate("user", "username -_id")
+    .select("-_id -video -acticity -__v -activity");
+
   return res
     .status(200)
-    .json(new ApiResposne(200, video, "Video Find Successfully"));
+    .json(
+      new ApiResposne(
+        200,
+        { VideoDetails: video, VideoStatus, VideoComment: allComments },
+        "Video Find Successfully"
+      )
+    );
 });
+
 module.exports = {
   videoUpload,
   getUsersUploadedVideo,
