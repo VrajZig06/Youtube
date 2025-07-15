@@ -6,6 +6,8 @@ const { uploadOnCloudinary } = require("../utils/cloudinary");
 const User = require("../models/user.model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const UserSearch = require("../models/userSearch.model");
+const Video = require("../models/video.model");
 
 const generateAccessTokenAndRefreshToken = async (userId) => {
   try {
@@ -71,7 +73,6 @@ const registerUser = asyncHandler(async (req, res) => {
   let avatar;
   if (avatarLocalPath) {
     avatar = await uploadOnCloudinary(avatarLocalPath);
-    console.log("Avatar", avatar);
   }
 
   let coverImage;
@@ -125,7 +126,6 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 
   const isPasswordValid = await user.isPasswordCorrect(password);
-  console.log(isPasswordValid);
 
   if (!isPasswordValid) {
     throw new ApiError(404, "Invalid Password.");
@@ -325,6 +325,200 @@ const updateUser = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResposne(200, {}, "User Data updated Successfully"));
 });
+
+const getChannelDetails = asyncHandler(async (req, res) => {
+  const { username } = req.query;
+
+  if (!username?.trim()) {
+    throw new ApiError(400, "Username is Required.");
+  }
+  let user = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(),
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "Subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions", // fixed spelling
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "SubscribedTo",
+      },
+    },
+    {
+      $addFields: {
+        subscriberCount: { $size: "$Subscribers" },
+        subscribedTo: { $size: "$SubscribedTo" },
+        isSubscribed: {
+          $cond: {
+            if: {
+              $in: [
+                req.user?._id,
+                {
+                  $map: {
+                    input: "$Subscribers",
+                    as: "s",
+                    in: "$$s.subscriber",
+                  },
+                },
+              ],
+            },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        username: 1,
+        fullname: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscriberCount: 1,
+        subscribedTo: 1,
+        isSubscribed: 1,
+      },
+    },
+  ]);
+
+  /*
+
+  ---- Some bug in this ---
+
+  let user = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(),
+      },
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "Subscribers",
+      },
+      $lookup: {
+        from: "subsriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "SubscribedTo",
+      },
+      $addFields: {
+        subscriberCount: {
+          $size: "$Subscribers",
+        },
+        $sunscribedTo: {
+          $size: "$SubscribedTo",
+        },
+        $isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?._id, "$Subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+      $project: {
+          username: 1,
+          fullname: 1,
+          avatar: 1,
+          coverImage: 1,
+          subscriberCount: 1,
+          sunscribedTo: 1,
+          isSubscribed: 1,
+        },
+      },
+    ]);
+  */
+
+  return res
+    .status(200)
+    .json(new ApiResposne(200, { user }, "User Profiel get Successfully"));
+});
+
+const searchVideo = asyncHandler(async (req, res) => {
+  const { search } = req.query;
+
+  if (!search) {
+    throw new ApiError(400, "Search term is required");
+  }
+
+  const condition = { $regex: search.toLowerCase().trim(), $options: "i" };
+
+  // Check if user has already searched for this term
+  let existingSearch = await UserSearch.findOne({
+    searchItem: condition,
+    user: req.user._id,
+  });
+
+  const searchedVideos = await Video.find({
+    $or: [{ title: condition }, { description: condition }],
+  });
+
+  if (searchedVideos.length > 0) {
+    if (existingSearch) {
+      existingSearch.searchCount += 1;
+      await existingSearch.save({ validateBeforeSave: false });
+    } else {
+      await UserSearch.create({
+        searchItem: search.toLowerCase().trim(),
+        user: req.user._id,
+      });
+    }
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResposne(
+        200,
+        { searchedVideos },
+        "Search Result Found Successfully"
+      )
+    );
+});
+
+const recommandationSearch = asyncHandler(async (req, res) => {
+  let userId = req.user._id;
+  let AllRecommandationVideo;
+
+  let allSearchesByUser = await UserSearch.find({
+    user: String(userId),
+  })
+    .select("-user -_id -__v")
+    .sort({ searchCount: -1 });
+
+  if (allSearchesByUser.length >= 3) {
+    const regexFilters = allSearchesByUser.flatMap((term) => [
+      { title: { $regex: term.searchItem, $options: "i" } },
+      { description: { $regex: term.searchItem, $options: "i" } },
+    ]);
+
+    AllRecommandationVideo = await Video.find({ $or: regexFilters });
+  } else {
+    AllRecommandationVideo = await Video.find();
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResposne(
+        200,
+        { AllRecommandationVideo },
+        "Search Result Found Successfully"
+      )
+    );
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -333,4 +527,8 @@ module.exports = {
   changeCurrentPassword,
   getCurrentUser,
   updateUser,
+  getChannelDetails,
+  searchVideo,
+  recommandationSearch,
+  
 };

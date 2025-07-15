@@ -7,6 +7,9 @@ const {
   changeCurrentPassword,
   getCurrentUser,
   updateUser,
+  getChannelDetails,
+  searchVideo,
+  recommandationSearch,
 } = require("../controllers/user.controller");
 const { upload } = require("../middlewares/multer.middleware");
 const { jwtVerify } = require("../middlewares/auth.middleware");
@@ -47,5 +50,9 @@ router.route("/update").patch(
   jwtVerify,
   updateUser
 );
+router.route("/channelDetails").get(jwtVerify, getChannelDetails);
+router.route("/search").post(jwtVerify, searchVideo);
+router.route("/recommanded").get(jwtVerify, recommandationSearch);
+
 
 module.exports = router;

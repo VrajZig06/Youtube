@@ -19,8 +19,10 @@ app.use(cookieParser()); // used to making CRUD operation to user's Browser for 
 
 // Routes imports
 const userRouter = require("./routes/user.routes.js");
+const videoRouter = require("./routes/video.routes.js");
 
 // Routes Declarations
 app.use("/api/v1/users", userRouter);
+app.use("/api/v1/video", videoRouter);
 
 module.exports = app;
