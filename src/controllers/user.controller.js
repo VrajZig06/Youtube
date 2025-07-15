@@ -7,7 +7,9 @@ const User = require("../models/user.model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const UserSearch = require("../models/userSearch.model");
+const Subscription = require("../models/subscription.model");
 const Video = require("../models/video.model");
+const WatchHistory = require("../models/watchHistory.model");
 
 const generateAccessTokenAndRefreshToken = async (userId) => {
   try {
@@ -519,6 +521,50 @@ const recommandationSearch = asyncHandler(async (req, res) => {
     );
 });
 
+const userSubscribetoOtherChannel = asyncHandler(async (req, res) => {
+  const { channelId } = req.params;
+
+  if (channelId == req.user._id) {
+    throw new ApiError(400, "You can not Subscribe to Your Channel");
+  }
+
+  let isAlreadySubscribe = await Subscription.findOne({
+    subscriber: req.user._id,
+    channel: channelId,
+  });
+
+  if (isAlreadySubscribe) {
+    throw new ApiError(400, "You Already Subscribe this Channel");
+  }
+
+  await Subscription.create({
+    subscriber: req.user._id,
+    channel: channelId,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResposne(200, {}, "Subscibe to Channel Successfully"));
+});
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+  let watchHistory = await WatchHistory.find({ user: req.user._id })
+    .populate("video","-updatedAt -__v")
+    .sort({
+      createdAt: -1,
+    }).select("-updatedAt -__v -user -_id -createdAt");
+
+  return res
+    .status(200)
+    .json(
+      new ApiResposne(
+        200,
+        watchHistory,
+        "User's Watch History fetched Successfully"
+      )
+    );
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -530,5 +576,6 @@ module.exports = {
   getChannelDetails,
   searchVideo,
   recommandationSearch,
-  
+  userSubscribetoOtherChannel,
+  getWatchHistory,
 };

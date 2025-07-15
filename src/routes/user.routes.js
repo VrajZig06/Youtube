@@ -10,6 +10,8 @@ const {
   getChannelDetails,
   searchVideo,
   recommandationSearch,
+  userSubscribetoOtherChannel,
+  getWatchHistory,
 } = require("../controllers/user.controller");
 const { upload } = require("../middlewares/multer.middleware");
 const { jwtVerify } = require("../middlewares/auth.middleware");
@@ -52,7 +54,10 @@ router.route("/update").patch(
 );
 router.route("/channelDetails").get(jwtVerify, getChannelDetails);
 router.route("/search").post(jwtVerify, searchVideo);
+router.route("/watchHistory").get(jwtVerify, getWatchHistory);
 router.route("/recommanded").get(jwtVerify, recommandationSearch);
-
+router
+  .route("/subscribe/:channelId")
+  .post(jwtVerify, userSubscribetoOtherChannel);
 
 module.exports = router;

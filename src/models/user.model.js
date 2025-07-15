@@ -32,12 +32,6 @@ const userSchema = new mongoose.Schema(
     coverImage: {
       type: String, // Cloudinary URL
     },
-    watchHistory: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "video",
-      },
-    ],
     password: {
       type: String,
       required: [true, "Password is required"],

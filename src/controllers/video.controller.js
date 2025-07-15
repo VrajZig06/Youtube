@@ -1,4 +1,5 @@
 const Video = require("../models/video.model");
+const WatchHistory = require("../models/watchHistory.model");
 const { ApiError } = require("../utils/ApiError");
 const { ApiResposne } = require("../utils/ApiResponse");
 const { asyncHandler } = require("../utils/asyncHandler");
@@ -81,8 +82,14 @@ const getSingleVideo = asyncHandler(async (req, res) => {
     { new: true }
   ).populate(
     "owner",
-    "-watchHistory -password -createdAt -updatedAt -__v -refreshToken -coverImage"
+    " -password -createdAt -updatedAt -__v -refreshToken -coverImage"
   );
+
+  await WatchHistory.create({
+    user: req.user._id,
+    video: video._id,
+  });
+
   return res
     .status(200)
     .json(new ApiResposne(200, video, "Video Find Successfully"));
