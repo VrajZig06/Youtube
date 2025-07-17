@@ -1,4 +1,3 @@
-const { ModifiedPathsSnapshot } = require("mongoose");
 const multer = require("multer");
 
 const storage = multer.diskStorage({
