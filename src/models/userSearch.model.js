@@ -17,3 +17,4 @@ const userSearchSchema = new mongoose.Schema({
 
 const UserSearch = mongoose.model("search", userSearchSchema);
 module.exports = UserSearch;
+ 

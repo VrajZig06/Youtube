@@ -18,38 +18,6 @@ DBConnect()
 
 /*
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ---> Another way to Connect Database
 
 (async () => {
